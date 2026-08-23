@@ -1,0 +1,14 @@
+[project]
+name = "browser-automation-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Umananda Siddha", email = "umanandasiddha243@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "camoufox[geoip]>=0.5.5",
+    "fastapi[standard]>=0.141.1",
+    "pydantic-settings>=2.15.0",
+]
