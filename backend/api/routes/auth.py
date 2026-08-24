@@ -12,7 +12,7 @@ from backend.api.schemas import (
 )
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/api/browser-auth",
     tags=["Authentication"],
 )
 

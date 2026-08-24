@@ -13,3 +13,5 @@ browser_profiles/
 outputs/
 
 .env
+# Local SQLite database (contains password hashes)
+browser_agent.db

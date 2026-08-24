@@ -1,16 +1,37 @@
-import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import jwt
 from pwdlib import PasswordHash
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 password_hash = PasswordHash.recommended()
 
-JWT_SECRET = os.getenv(
-    "JWT_SECRET",
-    "development-secret-change-this",
-)
+
+class _AuthSettings(BaseSettings):
+    """
+    Reads backend/.env. A real environment variable still wins,
+    so deployments can override without touching the file.
+    """
+
+    jwt_secret: str = ""
+
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[1] / ".env",
+        extra="ignore",
+    )
+
+
+JWT_SECRET = _AuthSettings().jwt_secret
+
+# RFC 7518 requires >= 32 bytes for HS256. Failing loudly beats
+# silently signing every token with a weak fallback.
+if len(JWT_SECRET) < 32:
+    raise RuntimeError(
+        "JWT_SECRET missing or too short. Set a value of at "
+        "least 32 characters in backend/.env"
+    )
 
 JWT_ALGORITHM = "HS256"
 

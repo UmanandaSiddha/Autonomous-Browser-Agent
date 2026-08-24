@@ -12,8 +12,10 @@ class OllamaService:
         host: str = "http://localhost:11434",
     ):
         self.model = model
-        # Local models are slow; this only guards a real hang.
-        self.client = AsyncClient(host=host, timeout=300)
+        # No timeout on purpose. Local generation is slow and a
+        # cap just kills long-but-healthy calls (a 300s one made
+        # every digest fail). None is also ollama's own default.
+        self.client = AsyncClient(host=host, timeout=None)
 
     async def summarize_emails(
         self,
@@ -70,6 +72,10 @@ class OllamaService:
                 }
             ],
             format=EmailDigest.model_json_schema(),
+            # qwen3 reasons before answering, which costs far more
+            # tokens than the digest itself at ~6 tok/s locally.
+            # The schema already forces the shape we want.
+            think=False,
         )
 
         content = response["message"]["content"]

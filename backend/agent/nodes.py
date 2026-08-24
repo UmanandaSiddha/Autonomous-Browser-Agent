@@ -44,13 +44,17 @@ async def summarize_emails(
 
     except Exception as exc:
 
+        # Timeouts from httpx carry an empty message, so always
+        # include the type or the failure prints as "Error:".
+        detail = f"{type(exc).__name__}: {exc}".strip(": ")
+
         print(
-            f"[LLM] Error: {exc}"
+            f"[LLM] Error: {detail}"
         )
 
         return {
             "digest": None,
-            "error": str(exc),
+            "error": detail,
         }
 
 
