@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
 
 from backend.agent.graph import build_graph
 from backend.browser.auth import GmailAuth
@@ -9,6 +11,62 @@ from backend.db.database import SessionLocal
 from backend.db.models import JobStatus, JobStep
 
 from backend.jobs.manager import job_manager
+from backend.services.models import EmailDigest
+
+
+def _write_digest(
+    user_id: str,
+    job_id: str,
+    digest: EmailDigest,
+) -> Path:
+    """
+    Persist the digest as Markdown at outputs/<user_id>/<job_id>.md
+    """
+
+    path = Path("outputs") / user_id / f"{job_id}.md"
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    generated = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M UTC"
+    )
+
+    lines = [
+        "# Email Digest",
+        "",
+        f"- **Job:** `{job_id}`",
+        f"- **Generated:** {generated}",
+        "",
+        "## Summary",
+        "",
+        digest.summary,
+        "",
+    ]
+
+    if digest.priority_items:
+        lines += ["## Needs Attention", ""]
+
+        for item in digest.priority_items:
+            lines += [
+                f"### {item.action}",
+                "",
+                f"`{item.priority}` | `{item.action_type}`",
+                "",
+                item.reason,
+                "",
+            ]
+
+    if digest.action_items:
+        lines += ["## Action Items", ""]
+        lines += [f"- [ ] {a}" for a in digest.action_items]
+        lines += [""]
+
+    path.write_text(
+        "\n".join(lines),
+        encoding="utf-8",
+    )
+
+    return path
 
 
 def _record_failure(db, job_id: str, message: str):
@@ -187,8 +245,19 @@ async def run_email_automation(
             )
 
         # -------------------------------------------------
-        # 7. COMPLETE
+        # 7. PERSIST + COMPLETE
         # -------------------------------------------------
+
+        digest_path = _write_digest(
+            user_id,
+            job_id,
+            digest,
+        )
+
+        print(
+            f"[EMAIL WORKER] Digest written to "
+            f"{digest_path}"
+        )
 
         job_manager.update_job(
             db,

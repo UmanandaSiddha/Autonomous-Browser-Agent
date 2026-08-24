@@ -34,29 +34,30 @@ class OllamaService:
         ]
 
         prompt = f"""
-        You are an email intelligence assistant.
+        You are an email triage assistant.
 
-        Analyze the following recent emails.
+        From the emails below, pick out only the ones where the user
+        has to DO something. Newsletters, promotions, job alerts and
+        anything purely informational must be left out completely --
+        do not include them as low priority.
 
-        Your job is to:
+        For each email that qualifies, give:
+        - action: the concrete thing the user must do
+        - reason: why it matters, citing specifics from the email
+          (amounts, dates, deadlines, device names)
+        - priority: high, medium or low
+        - action_type: "required" if ignoring it has a real
+          consequence, otherwise "recommended"
 
-        1. Provide a concise overall summary.
-        2. Identify emails that genuinely require attention.
-        3. Assign each important item a priority:
-        - high
-        - medium
-        - low
-        4. Explain why each item matters.
-        5. Identify concrete actions the user actually needs to perform.
-        6. Do not invent actions that are not supported by the email.
-        7. Do not turn purely informational emails into required actions.
-        8. Ignore promotional emails unless they contain a meaningful action.
+        Then give:
+        - summary: two or three sentences on what actually needs
+          attention. Do not list who the emails are from.
+        - action_items: the action text of the "required" items only.
+          Leave out the "recommended" ones.
 
-        Important:
-        - "action" must describe a concrete action.
-        - "reason" must explain why the email requires attention.
-        - "action_type" must be either "required" or "recommended".
-        - Do not create an action item when no action is necessary.
+        Most inboxes yield only a few real items. If nothing needs
+        action, return an empty priority_items list. Use only what is
+        stated in the emails.
 
         Emails:
 
