@@ -15,16 +15,6 @@ from .nodes import (
 from .state import AgentState
 
 
-def route_after_summary(
-    state: AgentState,
-):
-
-    if state.get("error") is None:
-        return "validate"
-
-    return "validate"
-
-
 def build_graph():
 
     graph = StateGraph(

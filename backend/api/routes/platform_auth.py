@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.auth.dependencies import get_current_user
@@ -31,7 +32,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/register")
-async def register(
+def register(
     request: RegisterRequest,
     db: Session = Depends(get_db),
 ):
@@ -56,7 +57,20 @@ async def register(
     )
 
     db.add(user)
-    db.commit()
+
+    # The pre-check above can go stale between the query and the
+    # commit, so let the UNIQUE constraint be the real authority.
+    try:
+        db.commit()
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Email already registered",
+        )
+
     db.refresh(user)
 
     return {
@@ -66,7 +80,7 @@ async def register(
 
 
 @router.post("/login")
-async def login(
+def login(
     request: LoginRequest,
     db: Session = Depends(get_db),
 ):

@@ -12,7 +12,8 @@ class OllamaService:
         host: str = "http://localhost:11434",
     ):
         self.model = model
-        self.client = AsyncClient(host=host)
+        # Local models are slow; this only guards a real hang.
+        self.client = AsyncClient(host=host, timeout=300)
 
     async def summarize_emails(
         self,

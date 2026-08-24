@@ -1,24 +1,19 @@
 import asyncio
-import json
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from backend.db.models import AutomationJob
+from backend.db.models import AutomationJob, JobStatus, JobStep
 
-# from backend.jobs.models import (
-#     AutomationJob,
-#     JobStatus,
-#     JobStep,
-# )
+
+# asyncio only keeps weak references to running tasks, so a
+# background automation can be garbage collected mid-run unless
+# something holds on to it.
+_background_tasks: set[asyncio.Task] = set()
 
 
 class JobManager:
-
-    # def __init__(self):
-    #     self.jobs: dict[str, AutomationJob] = {}
-    #     self.tasks: dict[str, asyncio.Task] = {}
 
     def create_job(
         self,
@@ -26,25 +21,13 @@ class JobManager:
         user_id: str,
         automation_type: str,
     ) -> AutomationJob:
-        # job_id = f"job_{uuid.uuid4().hex[:12]}"
-
-        # now = datetime.now(timezone.utc)
-
-        # job = AutomationJob(
-        #     id=job_id,
-        #     status=JobStatus.QUEUED,
-        #     step=JobStep.INITIALIZING,
-        #     progress=0,
-        #     created_at=now,
-        #     updated_at=now,
-        # )
 
         job = AutomationJob(
             id=f"job_{uuid.uuid4().hex[:12]}",
             user_id=user_id,
             automation_type=automation_type,
-            status="queued",
-            step="queued",
+            status=JobStatus.QUEUED,
+            step=JobStep.QUEUED,
             progress=0,
         )
 
@@ -57,43 +40,19 @@ class JobManager:
             f" for user {user_id}"
         )
 
-        # self.jobs[job_id] = job
-
-        # print(
-        #     f"[JOB] Created job {job_id}"
-        # )
-
-        return job
-
-    def get_job(
-        self,
-        db: Session,
-        job_id: str,
-    ) -> AutomationJob | None:
-
-        job = db.get(
-            AutomationJob,
-            job_id,
-        )
-
-        if job is None:
-            return None
-
         return job
 
     def update_job(
         self,
-        # job_id: str,
-        # **updates,
         db: Session,
         job_id: str,
         *,
-        status: str | None = None,
-        step: str | None = None,
+        status: JobStatus | None = None,
+        step: JobStep | None = None,
         progress: int | None = None,
         error: str | None = None,
         result: dict | None = None,
-    ) -> AutomationJob | None:
+    ) -> AutomationJob:
 
         job = db.get(
             AutomationJob,
@@ -118,9 +77,7 @@ class JobManager:
             job.error = error
 
         if result is not None:
-            job.result = json.dumps(
-                result
-            )
+            job.result = result
 
         job.updated_at = (
             datetime.now(timezone.utc)
@@ -130,9 +87,9 @@ class JobManager:
         db.refresh(job)
 
         print(
-            f"[JOB] {job.id} → "
-            f"status={job.status}, "
-            f"step={job.step}, "
+            f"[JOB] {job.id} -> "
+            f"status={job.status.value}, "
+            f"step={job.step.value if job.step else None}, "
             f"progress={job.progress}%"
         )
 
@@ -153,7 +110,11 @@ class JobManager:
             worker(job_id, user_id)
         )
 
-        # self.tasks[job_id] = task
+        _background_tasks.add(task)
+
+        task.add_done_callback(
+            _background_tasks.discard
+        )
 
         return task
 

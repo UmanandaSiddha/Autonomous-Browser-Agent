@@ -1,6 +1,12 @@
+import asyncio
 from pathlib import Path
 
 from camoufox.async_api import AsyncCamoufox
+
+
+# Firefox locks user_data_dir, so two launches against the same
+# profile fail. Serialize them instead.
+_profile_locks: dict[str, asyncio.Lock] = {}
 
 
 class BrowserManager:
@@ -20,8 +26,21 @@ class BrowserManager:
 
         self.camoufox = None
         self.context = None
+        self._lock = None
 
     async def launch(self, headless: bool):
+        lock = _profile_locks.setdefault(
+            str(self.profile_dir),
+            asyncio.Lock(),
+        )
+
+        await lock.acquire()
+
+        # Only claim it once acquire() has actually returned. If the
+        # wait is cancelled, close() must not release someone else's
+        # lock.
+        self._lock = lock
+
         self.profile_dir.mkdir(
             parents=True,
             exist_ok=True,
@@ -36,7 +55,7 @@ class BrowserManager:
         )
 
         self.camoufox = AsyncCamoufox(
-            headless,
+            headless=headless,
             persistent_context=True,
             user_data_dir=str(
                 self.profile_dir
@@ -57,16 +76,29 @@ class BrowserManager:
         return page
 
     async def close(self):
-        if self.camoufox is not None:
-            print("[BROWSER] Closing browser...")
+        try:
+            if self.camoufox is not None:
+                print("[BROWSER] Closing browser...")
 
-            await self.camoufox.__aexit__(
-                None,
-                None,
-                None,
-            )
+                await self.camoufox.__aexit__(
+                    None,
+                    None,
+                    None,
+                )
 
-            print("[BROWSER] Browser closed")
+                print("[BROWSER] Browser closed")
 
-        self.camoufox = None
-        self.context = None
+        except Exception as exc:
+            # close() usually runs in a finally block. Raising
+            # here would replace whatever actually went wrong.
+            print(f"[BROWSER] Close failed: {exc}")
+
+        finally:
+            self.camoufox = None
+            self.context = None
+
+            # Release even if __aexit__ blew up, or the
+            # profile stays locked forever.
+            if self._lock is not None:
+                self._lock.release()
+                self._lock = None

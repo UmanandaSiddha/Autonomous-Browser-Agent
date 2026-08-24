@@ -1,13 +1,38 @@
+import asyncio
+
 from backend.agent.graph import build_graph
 from backend.browser.auth import GmailAuth
 from backend.browser.gmail import GmailService
 from backend.browser.manager import BrowserManager
 
+from backend.db.database import SessionLocal
+from backend.db.models import JobStatus, JobStep
+
 from backend.jobs.manager import job_manager
-from backend.jobs.models import (
-    JobStatus,
-    JobStep,
-)
+
+
+def _record_failure(db, job_id: str, message: str):
+    """
+    Mark a job failed. Must never raise: this is the only
+    thing standing between a crash and a job stuck on
+    "running" forever.
+    """
+    try:
+        db.rollback()
+
+        job_manager.update_job(
+            db,
+            job_id,
+            status=JobStatus.FAILED,
+            progress=100,
+            error=message,
+        )
+
+    except Exception as exc:
+        print(
+            f"[EMAIL WORKER] Could not record "
+            f"failure for {job_id}: {exc}"
+        )
 
 
 async def run_email_automation(
@@ -15,6 +40,10 @@ async def run_email_automation(
     user_id: str
 ):
     browser = BrowserManager(user_id)
+
+    # This runs after the HTTP response is gone, so the
+    # request-scoped session is already closed. Own one.
+    db = SessionLocal()
 
     try:
         # -------------------------------------------------
@@ -26,6 +55,7 @@ async def run_email_automation(
         )
 
         job_manager.update_job(
+            db,
             job_id,
             status=JobStatus.RUNNING,
             step=JobStep.AUTHENTICATING,
@@ -68,6 +98,7 @@ async def run_email_automation(
         # -------------------------------------------------
 
         job_manager.update_job(
+            db,
             job_id,
             step=JobStep.EXTRACTING_EMAILS,
             progress=30,
@@ -90,11 +121,20 @@ async def run_email_automation(
             f"{len(emails)} emails"
         )
 
+        # Fail here rather than inside the graph: an empty
+        # inbox is deterministic, so retrying it just burns
+        # the retry budget on the same result.
+        if not emails:
+            raise RuntimeError(
+                "No emails found in the inbox."
+            )
+
         # -------------------------------------------------
         # 5. LANGGRAPH
         # -------------------------------------------------
 
         job_manager.update_job(
+            db,
             job_id,
             step=JobStep.SUMMARIZING,
             progress=50,
@@ -128,6 +168,7 @@ async def run_email_automation(
         # -------------------------------------------------
 
         job_manager.update_job(
+            db,
             job_id,
             step=JobStep.VALIDATING,
             progress=90,
@@ -150,6 +191,7 @@ async def run_email_automation(
         # -------------------------------------------------
 
         job_manager.update_job(
+            db,
             job_id,
             status=JobStatus.COMPLETED,
             step=JobStep.COMPLETED,
@@ -162,6 +204,22 @@ async def run_email_automation(
             f"{job_id} completed successfully"
         )
 
+    except asyncio.CancelledError:
+        # Shutdown cancels in-flight tasks. CancelledError is not
+        # an Exception, so without this the job stays "running".
+        print(
+            f"[EMAIL WORKER] "
+            f"{job_id} cancelled"
+        )
+
+        _record_failure(
+            db,
+            job_id,
+            "Automation was cancelled.",
+        )
+
+        raise
+
     except Exception as exc:
 
         print(
@@ -169,16 +227,13 @@ async def run_email_automation(
             f"{job_id} failed: {exc}"
         )
 
-        job_manager.update_job(
-            job_id,
-            status=JobStatus.FAILED,
-            progress=100,
-            error=str(exc),
-        )
+        _record_failure(db, job_id, str(exc))
 
     finally:
 
         await browser.close()
+
+        db.close()
 
         print(
             f"[EMAIL WORKER] "

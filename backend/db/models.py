@@ -1,9 +1,42 @@
+import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.database import Base
+
+
+class JobStatus(str, enum.Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class JobStep(str, enum.Enum):
+    QUEUED = "queued"
+    INITIALIZING = "initializing"
+    AUTHENTICATING = "authenticating"
+    EXTRACTING_EMAILS = "extracting_emails"
+    SUMMARIZING = "summarizing"
+    VALIDATING = "validating"
+    COMPLETED = "completed"
+
+
+def _enum_column(enum_class):
+    """
+    SQLite has no native enum type, so store the
+    value as VARCHAR and validate in Python.
+    """
+    return Enum(
+        enum_class,
+        native_enum=False,
+        validate_strings=True,
+        values_callable=lambda e: [
+            member.value for member in e
+        ],
+    )
 
 
 class User(Base):
@@ -51,14 +84,14 @@ class AutomationJob(Base):
         nullable=False,
     )
 
-    status: Mapped[str] = mapped_column(
-        String(30),
+    status: Mapped[JobStatus] = mapped_column(
+        _enum_column(JobStatus),
         nullable=False,
-        default="queued",
+        default=JobStatus.QUEUED,
     )
 
-    step: Mapped[str | None] = mapped_column(
-        String(50),
+    step: Mapped[JobStep | None] = mapped_column(
+        _enum_column(JobStep),
         nullable=True,
     )
 
@@ -71,8 +104,8 @@ class AutomationJob(Base):
         nullable=True,
     )
 
-    result: Mapped[str | None] = mapped_column(
-        Text,
+    result: Mapped[dict | None] = mapped_column(
+        JSON,
         nullable=True,
     )
 

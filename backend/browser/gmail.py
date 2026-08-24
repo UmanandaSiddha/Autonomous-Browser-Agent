@@ -48,71 +48,89 @@ class GmailService:
 
         emails: list[EmailMessage] = []
 
-        for index in range(min(row_count, limit)):
+        for index in range(row_count):
+            if len(emails) >= limit:
+                break
+
             row = rows.nth(index)
 
-            # --------------------------------------------------
-            # Sender
-            # --------------------------------------------------
+            # count() does not auto-wait, so non-email rows are
+            # skipped instantly instead of burning a 30s timeout.
+            if await row.locator("span[email]").count() == 0:
+                continue
 
-            sender = row.locator("span[email]").first
+            try:
+                # --------------------------------------------------
+                # Sender
+                # --------------------------------------------------
 
-            sender_name = await sender.get_attribute("name")
-            sender_email = await sender.get_attribute("email")
+                sender = row.locator("span[email]").first
 
-            # --------------------------------------------------
-            # Subject
-            # --------------------------------------------------
+                sender_name = await sender.get_attribute("name")
+                sender_email = await sender.get_attribute("email")
 
-            subject_element = row.locator(
-                '[data-thread-id][data-legacy-thread-id]'
-            ).first
+                # --------------------------------------------------
+                # Subject
+                # --------------------------------------------------
 
-            subject = self.clean_text(
-                await subject_element.inner_text()
-            )
+                subject_element = row.locator(
+                    '[data-thread-id][data-legacy-thread-id]'
+                ).first
 
-            # --------------------------------------------------
-            # Snippet
-            # --------------------------------------------------
-
-            snippet_element = row.locator(".y2").first
-
-            snippet = self.clean_text(
-                await snippet_element.inner_text()
-            )
-
-            # Gmail puts a visual "-" separator before snippets.
-            if snippet.startswith("-"):
-                snippet = snippet[1:].strip()
-
-            # --------------------------------------------------
-            # Timestamp
-            # --------------------------------------------------
-
-            timestamp_element = row.locator(
-                'span[aria-label][title]'
-            ).first
-
-            timestamp = await timestamp_element.get_attribute("title")
-
-            # --------------------------------------------------
-            # Thread ID
-            # --------------------------------------------------
-
-            thread_id = await subject_element.get_attribute(
-                "data-thread-id"
-            )
-
-            emails.append(
-                EmailMessage(
-                    sender_name=sender_name or "",
-                    sender_email=sender_email or "",
-                    subject=subject,
-                    snippet=snippet,
-                    timestamp=timestamp or "",
-                    thread_id=thread_id,
+                subject = self.clean_text(
+                    await subject_element.inner_text()
                 )
-            )
+
+                # --------------------------------------------------
+                # Snippet
+                # --------------------------------------------------
+
+                snippet_element = row.locator(".y2").first
+
+                snippet = self.clean_text(
+                    await snippet_element.inner_text()
+                )
+
+                # Gmail puts a visual "-" separator before snippets.
+                if snippet.startswith("-"):
+                    snippet = snippet[1:].strip()
+
+                # --------------------------------------------------
+                # Timestamp
+                # --------------------------------------------------
+
+                timestamp_element = row.locator(
+                    'span[aria-label][title]'
+                ).first
+
+                timestamp = await timestamp_element.get_attribute("title")
+
+                # --------------------------------------------------
+                # Thread ID
+                # --------------------------------------------------
+
+                thread_id = await subject_element.get_attribute(
+                    "data-thread-id"
+                )
+
+                emails.append(
+                    EmailMessage(
+                        sender_name=sender_name or "",
+                        sender_email=sender_email or "",
+                        subject=subject,
+                        snippet=snippet,
+                        timestamp=timestamp or "",
+                        thread_id=thread_id,
+                    )
+                )
+
+            except Exception as exc:
+                # Gmail's row list also contains ads and section
+                # headers. Skip anything that doesn't parse.
+                print(
+                    f"[GMAIL] Skipped row {index}: {exc}"
+                )
+
+                continue
 
         return emails

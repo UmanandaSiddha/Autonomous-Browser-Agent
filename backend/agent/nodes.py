@@ -69,8 +69,13 @@ async def validate_digest(
 
     if digest is None:
 
+        # Keep the summarizer's error if there is one, otherwise
+        # the real cause is replaced by a generic message.
         return {
-            "error": "No digest was produced."
+            "error": (
+                state.get("error")
+                or "No digest was produced."
+            )
         }
 
     if not digest.summary.strip():
