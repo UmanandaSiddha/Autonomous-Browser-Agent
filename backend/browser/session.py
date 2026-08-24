@@ -4,8 +4,8 @@ from backend.browser.manager import BrowserManager
 
 
 class BrowserSession:
-    def __init__(self):
-        self.manager = BrowserManager()
+    def __init__(self, user_id: str):
+        self.manager = BrowserManager(user_id)
         self.page: Page | None = None
 
     async def start(self):

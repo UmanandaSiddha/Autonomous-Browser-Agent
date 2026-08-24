@@ -1,7 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from backend.browser.auth import GmailAuth
 from backend.browser.manager import BrowserManager
+
+from backend.db.models import User
+from backend.auth.dependencies import get_current_user
 
 from backend.api.schemas import (
     AuthConnectResponse,
@@ -17,7 +20,9 @@ router = APIRouter(
     "/gmail/status",
     response_model=AuthStatusResponse,
 )
-async def gmail_auth_status():
+async def gmail_auth_status(
+    current_user: User = Depends(get_current_user),
+):
     """
     Check whether the persistent Gmail browser
     profile is currently authenticated.
@@ -25,7 +30,9 @@ async def gmail_auth_status():
 
     print("[API][AUTH] Checking Gmail authentication")
 
-    browser = BrowserManager()
+    browser = BrowserManager(
+        user_id=current_user.id
+    )
 
     try:
         page = await browser.launch(
@@ -64,7 +71,9 @@ async def gmail_auth_status():
     "/gmail/connect",
     response_model=AuthConnectResponse,
 )
-async def connect_gmail():
+async def connect_gmail(
+    current_user: User = Depends(get_current_user),
+):
     """
     Launch an interactive browser so the user
     can authenticate their Google account.
@@ -77,7 +86,9 @@ async def connect_gmail():
         "[API][AUTH] Starting Gmail connection"
     )
 
-    browser = BrowserManager()
+    browser = BrowserManager(
+        user_id=current_user.id
+    )
 
     try:
         page = await browser.launch(

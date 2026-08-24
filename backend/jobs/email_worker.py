@@ -12,8 +12,9 @@ from backend.jobs.models import (
 
 async def run_email_automation(
     job_id: str,
+    user_id: str
 ):
-    browser = BrowserManager()
+    browser = BrowserManager(user_id)
 
     try:
         # -------------------------------------------------
@@ -105,14 +106,21 @@ async def run_email_automation(
 
         graph = build_graph()
 
+        initial_state = {
+            "authenticated": authenticated,
+            "emails": emails,
+            "digest": None,
+            "error": None,
+            "retry_count": 0,
+        }
+
+        print(
+            "[EMAIL WORKER] "
+            "Invoking LangGraph"
+        )
+
         result = await graph.ainvoke(
-            {
-                "authenticated": True,
-                "emails": emails,
-                "digest": None,
-                "error": None,
-                "retry_count": 0,
-            }
+            initial_state
         )
 
         # -------------------------------------------------

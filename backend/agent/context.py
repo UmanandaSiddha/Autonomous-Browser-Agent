@@ -2,8 +2,8 @@ from backend.browser.manager import BrowserManager
 
 
 class AgentContext:
-    def __init__(self):
-        self.browser = BrowserManager()
+    def __init__(self, user_id: str):
+        self.browser = BrowserManager(user_id)
 
     async def start(self):
         print("[BROWSER] Starting browser session...")
