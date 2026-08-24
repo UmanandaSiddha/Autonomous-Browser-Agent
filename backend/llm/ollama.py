@@ -37,9 +37,17 @@ class OllamaService:
         You are an email triage assistant.
 
         From the emails below, pick out only the ones where the user
-        has to DO something. Newsletters, promotions, job alerts and
-        anything purely informational must be left out completely --
-        do not include them as low priority.
+        has to DO something.
+
+        Include: a bill or payment with an amount or due date, an OTP
+        or code to hand over, a security alert about account access, a
+        message someone is waiting on a reply to, anything with a
+        stated deadline.
+
+        Exclude completely: newsletters, promotions and offers, job
+        alerts and recommendations, social notifications, and receipts
+        for things already done. Leave these out entirely -- do not
+        include them as low priority.
 
         For each email that qualifies, give:
         - action: the concrete thing the user must do
@@ -53,7 +61,6 @@ class OllamaService:
         - summary: two or three sentences on what actually needs
           attention. Do not list who the emails are from.
         - action_items: the action text of the "required" items only.
-          Leave out the "recommended" ones.
 
         Most inboxes yield only a few real items. If nothing needs
         action, return an empty priority_items list. Use only what is
@@ -83,7 +90,18 @@ class OllamaService:
 
         try:
             data = json.loads(content)
-            return EmailDigest.model_validate(data)
+            digest = EmailDigest.model_validate(data)
+
+            # Derive rather than trust: the model tends to either
+            # mirror priority_items verbatim here or disagree with
+            # its own action_type labels.
+            digest.action_items = [
+                item.action
+                for item in digest.priority_items
+                if item.action_type == "required"
+            ]
+
+            return digest
 
         except Exception as exc:
             print("\n===== INVALID LLM OUTPUT =====")
