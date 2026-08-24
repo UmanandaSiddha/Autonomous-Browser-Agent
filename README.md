@@ -143,30 +143,47 @@ The job progresses through `authenticating` -> `extracting_emails` ->
 
 ## Output
 
-Each completed run writes `outputs/<user_id>/<job_id>.md`:
+Each completed run writes `outputs/<user_id>/<job_id>.md`: the digest, every
+email it read (linked back to the Gmail thread), and the raw JSON.
 
 ```markdown
 # Email Digest
 
-- **Job:** `job_59dea2599953`
-- **Generated:** 2026-08-24 18:57 UTC
+- **Job:** `job_fcbcc0e8210e`
+- **Generated:** 2026-08-24 19:34 UTC
 
 ## Summary
 
-Security alerts from Google, a pending Airtel bill, and several job alerts.
+An Airtel bill is due and an Amazon delivery needs an OTP.
 
 ## Needs Attention
 
-### Check the security alert for the new sign-in on Mac OS
+### Pay the Airtel Wi-Fi+TV bill
 
 `high` | `required`
 
-A new sign-in to your Google Account. If this wasn't you, secure the account.
+Account 10101033276403 is due on 03 Sep 2026, amount 1043.51.
 
 ## Action Items
 
-- [ ] Check the security alert for the new sign-in on Mac OS
+- [ ] Pay the Airtel Wi-Fi+TV bill
+
+## Emails Reviewed (10)
+
+- [Your Airtel bill for August 2026](https://mail.google.com/mail/u/0/#inbox/1a03...)
+  Airtel - Mon, Aug 24, 2026
+- [60% OFF on your next order](https://mail.google.com/mail/u/0/#inbox/1a04...)
+  Swiggy - Mon, Aug 24, 2026
+
+## Raw Digest
+
+...the digest as JSON...
 ```
+
+The `Emails Reviewed` list is what makes a digest checkable: every claim above
+it can be traced to a source message, and you can see what was skipped. Links
+use Gmail's `#inbox/<thread-id>` form, so they open the thread in a normal
+browser session.
 
 The same digest is stored as JSON in the job row, so the API returns it without
 reading from disk.

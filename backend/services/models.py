@@ -8,6 +8,7 @@ class EmailMessage(BaseModel):
     snippet: str
     timestamp: str
     thread_id: str | None = None
+    link: str | None = None
 
 
 class ActionItem(BaseModel):

@@ -4,11 +4,13 @@ from backend.services.models import EmailMessage
 
 
 class GmailService:
+    INBOX_URL = "https://mail.google.com/mail/u/0/#inbox"
+
     def __init__(self, page):
         self.page = page
 
     async def open_inbox(self):
-        await self.page.goto("https://mail.google.com/mail/u/0/#inbox")
+        await self.page.goto(self.INBOX_URL)
 
         await self.page.wait_for_load_state("domcontentloaded")
 
@@ -113,6 +115,17 @@ class GmailService:
                     "data-thread-id"
                 )
 
+                # Gmail resolves #inbox/<legacy-id> to the thread.
+                legacy_id = await subject_element.get_attribute(
+                    "data-legacy-thread-id"
+                )
+
+                link = (
+                    f"{self.INBOX_URL}/{legacy_id}"
+                    if legacy_id
+                    else None
+                )
+
                 emails.append(
                     EmailMessage(
                         sender_name=sender_name or "",
@@ -121,6 +134,7 @@ class GmailService:
                         snippet=snippet,
                         timestamp=timestamp or "",
                         thread_id=thread_id,
+                        link=link,
                     )
                 )
 

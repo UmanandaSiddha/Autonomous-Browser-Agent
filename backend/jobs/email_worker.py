@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,13 +12,14 @@ from backend.db.database import SessionLocal
 from backend.db.models import JobStatus, JobStep
 
 from backend.jobs.manager import job_manager
-from backend.services.models import EmailDigest
+from backend.services.models import EmailDigest, EmailMessage
 
 
 def _write_digest(
     user_id: str,
     job_id: str,
     digest: EmailDigest,
+    emails: list[EmailMessage],
 ) -> Path:
     """
     Persist the digest as Markdown at outputs/<user_id>/<job_id>.md
@@ -60,6 +62,37 @@ def _write_digest(
         lines += ["## Action Items", ""]
         lines += [f"- [ ] {a}" for a in digest.action_items]
         lines += [""]
+
+    # Every email that was read, so the digest above can be
+    # checked against what it actually saw.
+    lines += [f"## Emails Reviewed ({len(emails)})", ""]
+
+    for email in emails:
+        subject = email.subject or "(no subject)"
+
+        title = (
+            f"[{subject}]({email.link})"
+            if email.link
+            else subject
+        )
+
+        sender = email.sender_name or email.sender_email
+
+        lines += [
+            f"- {title}",
+            f"  {sender} - {email.timestamp}",
+        ]
+
+    lines += [""]
+
+    lines += [
+        "## Raw Digest",
+        "",
+        "```json",
+        json.dumps(digest.model_dump(), indent=2, ensure_ascii=False),
+        "```",
+        "",
+    ]
 
     path.write_text(
         "\n".join(lines),
@@ -252,6 +285,7 @@ async def run_email_automation(
             user_id,
             job_id,
             digest,
+            emails,
         )
 
         print(
