@@ -1,5 +1,18 @@
 from pydantic import BaseModel
 
+from enum import Enum
+
+class Priority(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class ActionType(str, Enum):
+    REQUIRED = "required"
+    RECOMMENDED = "recommended"
+    NONE = "none"
+
 
 class EmailMessage(BaseModel):
     sender_name: str
@@ -14,8 +27,8 @@ class EmailMessage(BaseModel):
 class ActionItem(BaseModel):
     action: str
     reason: str
-    priority: str
-    action_type: str
+    priority: Priority
+    action_type: ActionType
 
 
 class EmailDigest(BaseModel):

@@ -15,3 +15,13 @@ outputs/
 .env
 # Local SQLite database (contains password hashes)
 browser_agent.db
+
+# Training data derived from a real Gmail inbox - keep private.
+# The prompts contain full message subjects and snippets, and the
+# labels quote amounts, account numbers and OTPs from them.
+training/data/*.jsonl
+training/data/raw/
+
+# Fine-tuning checkpoints and merged weights (large, and derived
+# from the private data above).
+training/outputs/

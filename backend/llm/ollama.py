@@ -2,7 +2,7 @@ import json
 
 from ollama import AsyncClient
 
-from backend.services.models import EmailDigest, EmailMessage
+from backend.services.models import ActionType, EmailDigest, EmailMessage
 
 
 class OllamaService:
@@ -98,7 +98,7 @@ class OllamaService:
             digest.action_items = [
                 item.action
                 for item in digest.priority_items
-                if item.action_type == "required"
+                if item.action_type is ActionType.REQUIRED
             ]
 
             return digest

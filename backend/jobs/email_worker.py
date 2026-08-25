@@ -52,7 +52,7 @@ def _write_digest(
             lines += [
                 f"### {item.action}",
                 "",
-                f"`{item.priority}` | `{item.action_type}`",
+                f"`{item.priority.value}` | `{item.action_type.value}`",
                 "",
                 item.reason,
                 "",
@@ -89,7 +89,11 @@ def _write_digest(
         "## Raw Digest",
         "",
         "```json",
-        json.dumps(digest.model_dump(), indent=2, ensure_ascii=False),
+        json.dumps(
+            digest.model_dump(mode="json"),
+            indent=2,
+            ensure_ascii=False,
+        ),
         "```",
         "",
     ]
@@ -299,7 +303,7 @@ async def run_email_automation(
             status=JobStatus.COMPLETED,
             step=JobStep.COMPLETED,
             progress=100,
-            result=digest.model_dump(),
+            result=digest.model_dump(mode="json"),
         )
 
         print(

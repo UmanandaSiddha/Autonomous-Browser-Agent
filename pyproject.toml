@@ -6,14 +6,39 @@ readme = "README.md"
 authors = [
     { name = "Umananda Siddha", email = "umanandasiddha243@gmail.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
+
 dependencies = [
+    "accelerate>=1.14.0",
+    "bitsandbytes>=0.50.1",
     "camoufox[geoip]>=0.5.5",
+    "datasets>=5.0.1",
     "fastapi[standard]>=0.141.1",
     "langgraph>=1.2.11",
     "ollama>=0.6.2",
+    "peft>=0.20.0",
     "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.13.0",
     "sqlalchemy>=2.0.52",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "transformers>=5.15.1",
+    "trl==0.19.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
