@@ -12,6 +12,7 @@ Runs on CPU on purpose: merging needs the base in fp16 (~3.1 GB) and
 """
 
 import argparse
+import json
 import shutil
 from pathlib import Path
 
@@ -29,6 +30,50 @@ MODELFILE = """FROM .
 PARAMETER temperature 0
 PARAMETER num_ctx 4096
 """
+
+
+def _make_ollama_compatible(out_dir: Path, base_model: str):
+    """
+    transformers 5.x writes a config schema Ollama 0.32 cannot read.
+    It relocated rope_theta into a rope_parameters object and renamed
+    torch_dtype to dtype. Ollama still looks for the old top-level
+    keys, finds nothing, falls back to a default RoPE frequency and
+    the model emits pure noise -- correct weights, wrong positions.
+
+    It also needs the legacy BPE vocab files, which save_pretrained
+    omits when it writes the fast tokenizer.
+    """
+
+    config_path = out_dir / "config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    rope = config.get("rope_parameters") or {}
+
+    restored = []
+
+    if not config.get("rope_theta") and rope.get("rope_theta"):
+        config["rope_theta"] = rope["rope_theta"]
+        restored.append("rope_theta")
+
+    if not config.get("torch_dtype") and config.get("dtype"):
+        config["torch_dtype"] = config["dtype"]
+        restored.append("torch_dtype")
+
+    config_path.write_text(
+        json.dumps(config, indent=2), encoding="utf-8"
+    )
+
+    print(f"[COMPAT] restored legacy config keys: {restored}")
+
+    # vocab.json / merges.txt for the converter's BPE vocabulary
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+
+    written = tokenizer.save_vocabulary(str(out_dir))
+
+    print(
+        "[COMPAT] wrote vocab files: "
+        f"{[Path(f).name for f in written]}"
+    )
 
 
 def main():
@@ -72,6 +117,8 @@ def main():
     AutoTokenizer.from_pretrained(args.model).save_pretrained(
         str(MERGED)
     )
+
+    _make_ollama_compatible(MERGED, args.model)
 
     (MERGED / "Modelfile").write_text(MODELFILE, encoding="utf-8")
 

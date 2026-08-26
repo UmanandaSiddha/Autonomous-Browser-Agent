@@ -122,6 +122,11 @@ def main():
     ap.add_argument("--adapter", default=None)
     ap.add_argument("--max-new-tokens", type=int, default=700)
     ap.add_argument("--show", type=int, default=2)
+    ap.add_argument(
+        "--save",
+        default=None,
+        help="write predictions to this JSON file for scoring",
+    )
     args = ap.parse_args()
 
     records = load_test()
@@ -134,6 +139,7 @@ def main():
     empty_correct = 0
     empty_total = 0
     samples = []
+    dumped = []
 
     for i, record in enumerate(records):
         prompt = [
@@ -172,6 +178,17 @@ def main():
         if len(samples) < args.show:
             samples.append((reference, prediction, raw))
 
+        dumped.append(
+            {
+                "reference": reference.model_dump(mode="json"),
+                "prediction": (
+                    prediction.model_dump(mode="json")
+                    if prediction
+                    else None
+                ),
+            }
+        )
+
     n = len(records)
 
     print()
@@ -190,6 +207,13 @@ def main():
           f"({100 * pred_items / (n * 10):.0f}% of emails, "
           f"reference {100 * ref_items / (n * 10):.0f}%)")
     print("=" * 58)
+
+    if args.save:
+        Path(args.save).write_text(
+            json.dumps(dumped, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(f"predictions written to {args.save}")
 
     for reference, prediction, raw in samples:
         print()

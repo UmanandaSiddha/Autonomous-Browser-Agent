@@ -187,8 +187,13 @@ def main():
         gradient_checkpointing_kwargs={"use_reentrant": False},
         optim="paged_adamw_8bit",
         logging_steps=1,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        # Step-based, not epoch-based: an epoch is ~41 min here, so
+        # a crash between epoch boundaries loses the whole lot.
+        # Every 4 steps caps the loss at ~23 min.
+        eval_strategy="steps",
+        eval_steps=4,
+        save_strategy="steps",
+        save_steps=4,
         save_total_limit=2,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",

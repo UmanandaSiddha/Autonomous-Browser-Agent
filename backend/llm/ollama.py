@@ -10,8 +10,16 @@ class OllamaService:
         self,
         model: str = "qwen3:8b",
         host: str = "http://localhost:11434",
+        think: bool | None = False,
     ):
         self.model = model
+
+        # qwen3 reasons before answering, which costs far more tokens
+        # than the digest itself at ~6 tok/s locally, so it is turned
+        # off. Models without a thinking mode (qwen2.5 and the
+        # fine-tune built on it) reject the flag outright, and the
+        # client omits the field entirely when this is None.
+        self.think = think
         # No timeout on purpose. Local generation is slow and a
         # cap just kills long-but-healthy calls (a 300s one made
         # every digest fail). None is also ollama's own default.
@@ -80,10 +88,7 @@ class OllamaService:
                 }
             ],
             format=EmailDigest.model_json_schema(),
-            # qwen3 reasons before answering, which costs far more
-            # tokens than the digest itself at ~6 tok/s locally.
-            # The schema already forces the shape we want.
-            think=False,
+            think=self.think,
         )
 
         content = response["message"]["content"]
