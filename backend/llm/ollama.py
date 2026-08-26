@@ -1,25 +1,33 @@
 import json
+import os
 
 from ollama import AsyncClient
 
 from backend.services.models import ActionType, EmailDigest, EmailMessage
 
 
+# Override without touching code:  LLM_MODEL=digest-cfgfix
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "qwen3:8b")
+
+# qwen3 reasons before answering, which costs far more tokens than the
+# digest itself at ~6 tok/s locally, so it is turned off. Models with
+# no thinking mode (qwen2.5 and the fine-tune built on it) reject the
+# flag outright, and the client omits the field entirely when None.
+DEFAULT_THINK = False if "qwen3" in DEFAULT_MODEL else None
+
+
 class OllamaService:
     def __init__(
         self,
-        model: str = "qwen3:8b",
+        model: str | None = None,
         host: str = "http://localhost:11434",
-        think: bool | None = False,
+        think: bool | None = ...,
     ):
-        self.model = model
+        self.model = model or DEFAULT_MODEL
 
-        # qwen3 reasons before answering, which costs far more tokens
-        # than the digest itself at ~6 tok/s locally, so it is turned
-        # off. Models without a thinking mode (qwen2.5 and the
-        # fine-tune built on it) reject the flag outright, and the
-        # client omits the field entirely when this is None.
-        self.think = think
+        self.think = (
+            DEFAULT_THINK if think is ... else think
+        )
         # No timeout on purpose. Local generation is slow and a
         # cap just kills long-but-healthy calls (a 300s one made
         # every digest fail). None is also ollama's own default.

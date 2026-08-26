@@ -35,7 +35,7 @@ def load(split: str) -> list[dict]:
     path = DATA_DIR / f"email_digest_{split}.jsonl"
 
     if not path.exists():
-        raise SystemExit(f"Missing {path}. Run training/build_dataset.py")
+        raise SystemExit(f"Missing {path}. Run training/build_prompts.py then assemble_dataset.py")
 
     return [
         json.loads(line)
